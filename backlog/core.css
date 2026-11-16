@@ -1,0 +1,137 @@
+/* Backlog core styles: fonts, the stage, the overlay and transitions. Each scene styles itself (prefix its classes). */
+
+@font-face { font-family: 'Barlow Condensed'; src: url(fonts/barlow-condensed-800.woff2) format('woff2'); font-weight: 700; font-display: block; }
+@font-face { font-family: 'Share Tech Mono'; src: url(fonts/share-tech-mono-400-latin.woff2) format('woff2'); font-display: block; }
+@font-face { font-family: 'Inter'; src: url(fonts/inter-400-latin.woff2) format('woff2'); font-weight: 400; font-display: block; }
+@font-face { font-family: 'Inter'; src: url(fonts/inter-500-latin.woff2) format('woff2'); font-weight: 500; font-display: block; }
+
+:root {
+  /* --u is one unit of a 1920-wide design, clamped so 16:10 and 21:9 screens still fit. Scenes size things in var(--u). */
+  --u: min(calc(100vw / 1920), calc(100vh / 1080));
+}
+
+/* The palette. This block is the only place it lives: core.js reads these back into ctx.theme for canvas and WebGL,
+   so a scene never writes a color of its own. There is no color here on purpose: warm white and grays, so the covers
+   bring the only color.
+   accent: the main tone. -rgb: the same as "r,g,b" for rgba(var(--bl-accent-rgb), a). -hi: the bright cut (lines).
+   -lo: the dim solid. second: the quieter second tone (section marks). bloom: the soft blur behind big type.
+   ink: text. dim/faint/glow: the accent at set strengths. bg: the near-black ground. */
+:root {
+  --bl-accent: #e9e6df; --bl-accent-rgb: 233,230,223; --bl-accent-hi: #ffffff; --bl-accent-lo: #55534f;
+  --bl-second: #a3a09a; --bl-second-rgb: 163,160,154; --bl-bloom: #8c8a86;
+  --bl-ink: #f4f2ee; --bl-dim: rgba(233,230,223,.5); --bl-faint: rgba(233,230,223,.14); --bl-glow: rgba(255,255,255,.28);
+  --bl-bg: #030303;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 100%; height: 100%; overflow: hidden; background: #000; color: #fff; cursor: none; }
+body { font-family: 'Inter', system-ui, sans-serif; -webkit-font-smoothing: antialiased; text-rendering: geometricPrecision; }
+
+#shift { position: fixed; inset: 0; transition: transform 6s ease-in-out; will-change: transform; }
+#stage, #overlay { position: absolute; inset: 0; overflow: hidden; }
+/* A thin black frame round the screen, fixed (it doesn't take part in the pixel shift). On the Steam Deck, covers cut by
+   the screen's edge can leave flickering colored slivers along the edges in the 3D scenes; the frame covers them and
+   the gap the pixel shift opens (up to shiftPx). */
+#frame { position: fixed; inset: 0; z-index: 40; pointer-events: none; box-shadow: inset 0 0 0 14px #000, inset 0 0 22px 18px rgba(0,0,0,.75); }
+#overlay { pointer-events: none; z-index: 10; }
+.bl-scene { position: absolute; inset: 0; overflow: hidden; }
+
+/* Transitions between scenes: the veil covers the swap. */
+#veil { position: fixed; inset: 0; z-index: 50; pointer-events: none; opacity: 0; background: #000; transition: opacity .9s ease; }
+#veil.on { opacity: 1; }
+#veil.rest { transition: opacity 8s ease; }
+.bl-black-clock { position: fixed; z-index: 60; font: 700 calc(34 * var(--u)) 'Barlow Condensed', sans-serif; letter-spacing: .12em; color: rgba(var(--bl-accent-rgb),.24); transition: left 4s ease, top 4s ease; }
+#veil.glitch { background: repeating-linear-gradient(0deg, rgba(0,0,0,.92) 0 3px, rgba(0,0,0,.6) 3px 5px); transition: opacity .12s steps(3); }
+/* 'tv': the picture folds to a thin accent line, the line shrinks to a point and blinks out, then the next scene opens
+   from a line. A few px tall and soft at the ends: no big bright area, and one blink per change. */
+.bl-tv { position: fixed; left: 0; right: 0; top: 50%; height: calc(3 * var(--u)); min-height: 2px; margin-top: calc(-1.5 * var(--u)); z-index: 55; pointer-events: none; opacity: 0;
+  background: linear-gradient(90deg, rgba(var(--bl-accent-rgb),0), rgba(var(--bl-accent-rgb),.75) 14%, var(--bl-ink) 50%, rgba(var(--bl-accent-rgb),.75) 86%, rgba(var(--bl-accent-rgb),0));
+  box-shadow: 0 0 calc(10 * var(--u)) rgba(var(--bl-accent-rgb),.55), 0 0 calc(34 * var(--u)) rgba(var(--bl-accent-rgb),.22); }
+
+/* Dim for OLED comfort at night (config.oled.dim, or nightDim between set hours). */
+body.bl-dim #shift { filter: brightness(var(--bl-dim, .6)); }
+
+/* The house kit: the Title Card's language, shared by every scene. Sizes are the scene's; looks are these.
+   mk: the small block before a section label, in the second color. lab: a condensed letter-spaced label. mono: the dim data line.
+   sub: the subtitle line ("LAST SESSION 3 DAYS AGO // 242 HOURS LOGGED"). big: a headline with scanlines and glow.
+   rule: the thin accent rule. haz: hazard stripes, used sparingly. seg: the seven-segment clock (ctx.segClock). */
+.bl-h-head { display: flex; align-items: flex-end; gap: calc(12 * var(--u)); line-height: 1; white-space: nowrap; }
+.bl-h-mk { flex: none; background: var(--bl-second); box-shadow: 0 0 calc(8 * var(--u)) rgba(var(--bl-second-rgb),.5); }
+.bl-h-lab { font-family: 'Barlow Condensed', sans-serif; font-weight: 700; line-height: 1; letter-spacing: .16em; text-transform: uppercase; color: var(--bl-accent); }
+.bl-h-mono { font-family: 'Share Tech Mono', monospace; line-height: 1.2; letter-spacing: .24em; text-transform: uppercase; color: var(--bl-dim); }
+.bl-h-sub { font-family: 'Barlow Condensed', sans-serif; font-weight: 700; line-height: 1.05; letter-spacing: .03em; text-transform: uppercase; color: var(--bl-accent);
+  text-shadow: 0 0 1px currentColor, 0 0 calc(4 * var(--u)) rgba(var(--bl-accent-rgb),.6), 0 0 calc(14 * var(--u)) rgba(var(--bl-accent-rgb),.3); }
+.bl-h-big { font-family: 'Barlow Condensed', sans-serif; font-weight: 700; line-height: .9; letter-spacing: .005em; text-transform: uppercase; color: var(--bl-accent);
+  text-shadow: 0 0 1px currentColor, 0 0 calc(6 * var(--u)) rgba(var(--bl-accent-rgb),.7), 0 0 calc(22 * var(--u)) rgba(var(--bl-accent-rgb),.35);
+  -webkit-mask-image: repeating-linear-gradient(180deg, #000 0 3px, rgba(0,0,0,.42) 3px 5px); mask-image: repeating-linear-gradient(180deg, #000 0 3px, rgba(0,0,0,.42) 3px 5px); }
+.bl-h-rule { height: max(2px, calc(3 * var(--u))); background: var(--bl-accent); box-shadow: 0 0 calc(8 * var(--u)) rgba(var(--bl-accent-rgb),.6); }
+/* No color: a white glow on white type only blurs it, so mono sets the type crisp, with a dark halo for contrast on art. */
+.bl-h-big, .bl-h-sub { text-shadow: 0 0 calc(12 * var(--u)) rgba(0,0,0,.85), 0 1px 2px rgba(0,0,0,.9); }
+.bl-h-big { -webkit-mask-image: none; mask-image: none; }
+.bl-h-rule, .bl-h-mk { box-shadow: none; }
+.bl-h-rule.faint { height: max(1px, calc(2 * var(--u))); background: var(--bl-faint); box-shadow: none; }
+/* The cover scenes' spotlight caption: the Label clock's two fonts, flat, so the caption and the clock read as one voice.
+   Scenes set the name's size. Thin letters show what's behind them, so the backing is darker than the scenes' own. */
+.bl-cap { z-index: 1; } /* above the clock corner's wide scrim, which would dim whatever part of it sits on the left */
+.bl-cap-name { font-family: 'Archivo Wide Light', sans-serif; font-weight: 300; line-height: 1.1; color: var(--bl-ink); text-shadow: 0 1px 3px rgba(0,0,0,.75); }
+.bl-cap-line { font-family: Inter, sans-serif; font-weight: 400; line-height: 1.3; text-transform: lowercase; color: var(--bl-accent); text-shadow: 0 1px 3px rgba(0,0,0,.75); }
+.bl-cap-line::first-letter { text-transform: uppercase; }
+.bl-cap .bl-h-lab { font-family: Inter, sans-serif; font-weight: 500; font-size: calc(22 * var(--u)) !important; letter-spacing: .14em; }
+.bl-cap .bl-h-mono { font-family: Inter, sans-serif; letter-spacing: .08em; }
+.bl-cap .bl-h-head .bl-h-mono { font-size: calc(20.5 * var(--u)) !important; }
+/* No label above the name: the caption opens on its rule, then the name. */
+body .bl-cap .bl-h-head { display: none; }
+.bl-cap .bl-h-rule { height: 1px; box-shadow: none; background: rgba(var(--bl-accent-rgb),.45); }
+.bl-cap .bl-h-mk { box-shadow: none; }
+/* The backing: dark at the words, then a long, gentle fall-off so it reads as shade, not a hard black oval. The halo on
+   the letters carries the rest of the contrast. */
+body .bl-cap::before { inset: -42% -16%; background: radial-gradient(closest-side, rgba(4,5,6,.91) 0, rgba(4,5,6,.86) 50%, rgba(4,5,6,.6) 70%, rgba(4,5,6,.26) 87%, rgba(4,5,6,0)); }
+.bl-cap .bl-cap-name, .bl-cap .bl-cap-line, .bl-cap .bl-h-head, .bl-cap .bl-h-ach { text-shadow: 0 0 calc(14 * var(--u)) rgba(0,0,0,.9), 0 1px 3px rgba(0,0,0,.9); }
+.bl-h-haz { height: calc(14 * var(--u)); background: repeating-linear-gradient(-45deg, rgba(var(--bl-accent-rgb),.7) 0 calc(8 * var(--u)), transparent calc(8 * var(--u)) calc(16 * var(--u))); }
+.bl-h-seg { display: block; overflow: visible; }
+.bl-h-ach { display: flex; align-items: center; white-space: nowrap; line-height: 1; }
+.bl-h-ach .bl-h-mono { font-size: 1em; }
+.bl-h-ach-bar { flex: none; display: block; background: var(--bl-faint); overflow: hidden; }
+.bl-h-ach-bar i { display: block; height: 100%; background: var(--bl-accent); transform-origin: 0 50%; box-shadow: 0 0 4px var(--bl-glow); }
+.bl-h-ach-ok { flex: none; display: block; box-sizing: border-box; border-style: solid; border-color: var(--bl-accent); transform: rotate(40deg) translate(-15%, -12%); filter: drop-shadow(0 0 3px var(--bl-glow)); }
+.bl-h-ach.all .bl-h-mono { color: var(--bl-accent); }
+
+/* The clock corner the cover scenes share (ctx.clockCorner): a soft dark scrim so the type sits on quiet ground, and
+   the clock on it in one of four styles (config.clock.style). Figures sit in fixed cells (.bl-cc-fig). */
+@font-face { font-family: 'Archivo Wide Light'; src: url(fonts/archivo-wide-light.woff2) format('woff2'); font-weight: 100 400; font-display: block; }
+.bl-cc-scrim { position: absolute; left: 0; bottom: 0; width: calc(1500 * var(--u)); height: calc(1000 * var(--u)); pointer-events: none;
+  background: radial-gradient(ellipse 72% 80% at 8% 100%, rgba(5,6,7,.97) 0, rgba(5,6,7,.95) 42%, rgba(5,6,7,.78) 62%, rgba(5,6,7,.3) 84%, rgba(5,6,7,0) 100%); }
+.bl-cc { position: absolute; left: calc(104 * var(--u)); bottom: calc(92 * var(--u)); will-change: transform; }
+.bl-cc-fig { display: inline-block; text-align: center; }
+/* segment: the house seven-segment under a LOCAL TIME head, the date and the hours below. */
+.bl-cc-segment .bl-h-seg { margin: calc(22 * var(--u)) 0 calc(20 * var(--u)) calc(-4 * var(--u)); }
+.bl-cc-date { margin-top: calc(18 * var(--u)); font-size: calc(38 * var(--u)); }
+.bl-cc-stat { margin-top: calc(10 * var(--u)); font-size: calc(17 * var(--u)); }
+/* thin: big light wide figures, no glow, the date and hours as one quiet mono line under a hairline. */
+.bl-cc-th-row { display: flex; align-items: flex-start; white-space: nowrap; }
+.bl-cc-th-time { font: 200 calc(196 * var(--u))/.8 'Archivo Wide Light', sans-serif; color: var(--bl-ink); opacity: .92; margin-left: calc(-10 * var(--u)); }
+.bl-cc-th-ap { margin: calc(6 * var(--u)) 0 0 calc(18 * var(--u)); font: 400 calc(30 * var(--u))/1 'Archivo Wide Light', sans-serif; letter-spacing: .06em; color: var(--bl-accent); }
+.bl-cc-th-rule { height: 1px; margin: calc(30 * var(--u)) 0 calc(18 * var(--u)); background: rgba(var(--bl-accent-rgb),.45); }
+.bl-cc-th-line { display: flex; gap: calc(34 * var(--u)); font-size: calc(18 * var(--u)); white-space: nowrap; }
+.bl-cc-th-line .a { color: var(--bl-ink); opacity: .78; }
+/* label: a museum placard. Sentence case, one size step per line, one short rule. */
+.bl-cc-lb-time { font: 300 calc(84 * var(--u))/1 'Archivo Wide Light', sans-serif; color: var(--bl-ink); white-space: nowrap; }
+.bl-cc-lb-ap { font-size: .45em; margin-left: .28em; letter-spacing: .04em; color: var(--bl-accent); }
+.bl-cc-lb-date { margin-top: calc(16 * var(--u)); font: 400 calc(33 * var(--u))/1.2 Inter, sans-serif; color: var(--bl-ink); opacity: .82; }
+.bl-cc-lb-rule { width: calc(56 * var(--u)); height: max(2px, calc(3 * var(--u))); margin: calc(22 * var(--u)) 0 calc(18 * var(--u)); background: var(--bl-accent); }
+.bl-cc-lb-line { font: 400 calc(26 * var(--u))/1.45 Inter, sans-serif; color: var(--bl-accent); opacity: .8; }
+/* caption: the spotlight card's twin (head, rule, the time in big type, rule, the hours). */
+.bl-cc-caption .bl-h-head { margin-bottom: calc(12 * var(--u)); }
+.bl-cc-ca-time { padding: calc(12 * var(--u)) 0 calc(4 * var(--u)); font-size: calc(128 * var(--u)); white-space: nowrap; }
+.bl-cc-ca-ap { font-size: .36em; margin-left: .3em; letter-spacing: .08em; }
+.bl-cc-ca-line { white-space: nowrap; margin-top: calc(14 * var(--u)); font-size: calc(30 * var(--u)); }
+
+/* The overlay: a small clock and line of info that drift corner to corner. */
+.bl-ov { position: absolute; display: flex; flex-direction: column; gap: calc(12 * var(--u)); padding: calc(48 * var(--u)) calc(64 * var(--u)); opacity: 0; transition: opacity 2s ease; filter: drop-shadow(0 0 calc(14 * var(--u)) rgba(0,0,0,.9)); }
+.bl-ov.on { opacity: 1; }
+.bl-ov.tl { top: 0; left: 0; } .bl-ov.tr { top: 0; right: 0; align-items: flex-end; }
+.bl-ov.bl { bottom: 0; left: 0; } .bl-ov.br { bottom: 0; right: 0; align-items: flex-end; }
+.bl-ov-line { font-size: calc(17 * var(--u)); }
+
+/* Error card, only when a scene throws and nothing else can run. */
+.bl-error { position: absolute; inset: auto 0 0 0; padding: 16px 24px; font: 14px 'Share Tech Mono', monospace; color: #f55; background: rgba(0,0,0,.8); white-space: pre-wrap; }

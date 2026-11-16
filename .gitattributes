@@ -1,0 +1,6 @@
+# Keep LF line endings everywhere: install.sh and sync.py run on the Steam Deck (Linux), where CRLF breaks them.
+* text=auto eol=lf
+*.woff2 binary
+*.png binary
+*.webp binary
+*.jpg binary

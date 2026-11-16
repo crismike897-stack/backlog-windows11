@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Install Backlog
+Comment=Add the Backlog screensaver to Steam and keep its library up to date
+Exec=sh -c "f=\\"\\${1#file://}\\"; exec sh \\"\\$(dirname \\"\\$f\\")/tools/desktop.sh\\" install" sh %k
+Icon=preferences-desktop-screensaver
+Terminal=true

@@ -1,0 +1,10 @@
+# Your own library, written by the sync tools: game art, screenshots, fingerprints.
+# library.js stays committed as the placeholder (BACKLOG_LIBRARY = null).
+backlog/library/*
+!backlog/library/library.js
+
+# Your own art for extraGames in config.js.
+backlog/my-art/*
+!backlog/my-art/.gitkeep
+
+__pycache__/

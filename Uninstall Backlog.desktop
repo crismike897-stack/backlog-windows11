@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Uninstall Backlog
+Comment=Remove the Backlog screensaver from Steam and turn off its automatic refresh
+Exec=sh -c "f=\\"\\${1#file://}\\"; exec sh \\"\\$(dirname \\"\\$f\\")/tools/desktop.sh\\" uninstall" sh %k
+Icon=edit-delete
+Terminal=true
