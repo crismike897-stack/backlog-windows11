@@ -92,6 +92,7 @@ Every line is explained there. The ones people change most:
 | `scenes` | Which scenes play, and in what order: `mosaic`, `drift`, `flip`, `ripple`. The installer sets this for you. One more is included but off: `ripple2`, a deeper Ripple. |
 | `minutesPerScene`, `shuffle` | How long each scene stays, and whether the order is random. |
 | `clock` | 12 or 24 hour, seconds, and the style: `label`, `thin`, `segment` or `caption`. |
+| `overlay.clock` | `'never'` hides the clock in every scene. |
 | `featured` | Your favorites. The whole library still fills the scenes, but only these games take the spotlight and make Mosaic's pictures. |
 | `library.exclude` | Games to never show, by name or app id. |
 | `library.merge` | Show several entries as one game with the hours added up. Entries with the same name join on their own. |

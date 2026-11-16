@@ -424,6 +424,13 @@ def screenshots(userdir, limit):
         d = os.path.join(base, aid, 'screenshots')
         if not aid.isdigit() or not os.path.isdir(d):
             continue
+        # A non-Steam game is filed under its 64-bit game id (appid << 32 | 0x02000000): use its unsigned 32-bit
+        # appid, the id that game has everywhere else here.
+        appid = int(aid)
+        if appid > 0xFFFFFFFF:
+            appid >>= 32
+        if appid > 0xFFFFFFFF:
+            continue
         for fn in os.listdir(d):
             p = os.path.join(d, fn)
             if not os.path.isfile(p) or not fn.lower().endswith(('.jpg', '.jpeg', '.png')):
@@ -435,7 +442,7 @@ def screenshots(userdir, limit):
                     t = int(time.mktime(tuple(int(x) for x in m.groups()) + (0, 0, -1)))
                 except (OverflowError, ValueError):
                     t = 0
-            found.append({'appid': int(aid), 'src': p, 'time': t or int(os.path.getmtime(p))})
+            found.append({'appid': appid, 'src': p, 'time': t or int(os.path.getmtime(p))})
     found.sort(key=lambda s: s['time'], reverse=True)
     return found[:limit]
 

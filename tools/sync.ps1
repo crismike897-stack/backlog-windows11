@@ -355,6 +355,19 @@ if (-not ('BacklogVdf' -as [type])) { Add-Type -TypeDefinition $cs -ReferencedAs
 $clock = [Diagnostics.Stopwatch]::StartNew()
 function Log([string]$m) { if ($VerbosePreference -ne 'SilentlyContinue') { $m = ('[{0,5:N1}s] ' -f $clock.Elapsed.TotalSeconds) + $m }; Write-Host $m }
 function ToInt($v) { $n = 0L; if ($null -ne $v -and [long]::TryParse(([string]$v).Trim(), [ref]$n)) { return $n } return 0L }
+# A folder name or a cache key as an app id, or -1 when it isn't one. A non-Steam game is filed under its 64-bit game
+# id (appid << 32 | 0x02000000), which is too big for Int64: it becomes the unsigned 32-bit appid that game has
+# everywhere else here.
+function ToAppId($v) {
+  $n = [decimal]0
+  try {
+    $n = if ($v -is [string]) { [decimal]::Parse($v.Trim(), [Globalization.NumberStyles]::None, [Globalization.CultureInfo]::InvariantCulture) } else { [decimal]$v }
+  } catch { return -1L }
+  if ($n -ne [math]::Floor($n)) { return -1L }
+  if ($n -gt 4294967295) { $n = [math]::Floor($n / 4294967296) }
+  if ($n -lt 0 -or $n -gt 4294967295) { return -1L }
+  return [long]$n
+}
 function ReadVdf([string]$path) {
   if (-not (Test-Path -LiteralPath $path)) { return @{} }
   return [BacklogVdf]::ParseText([IO.File]::ReadAllText($path, [Text.Encoding]::UTF8))
@@ -561,8 +574,8 @@ $cache = Join-Path $steamDir 'appcache\librarycache'
 $cached = @{}
 if (Test-Path -LiteralPath $cache) {
   foreach ($e in Get-ChildItem -LiteralPath $cache -Force) {
-    if ($e.PSIsContainer -and $e.Name -match '^\d+$') { $cached[[uint32]$e.Name] = $true }
-    elseif (-not $e.PSIsContainer -and $e.Name -match '^(\d+)_') { $cached[[uint32]$Matches[1]] = $true }
+    if ($e.PSIsContainer -and $e.Name -match '^\d{1,9}$') { $cached[[uint32]$e.Name] = $true }
+    elseif (-not $e.PSIsContainer -and $e.Name -match '^(\d{1,9})_') { $cached[[uint32]$Matches[1]] = $true }
   }
 }
 Log ("Found: {0} installed, {1} with playtime, {2} with cached art" -f $installed.Count, $played.Count, $cached.Count)
@@ -806,7 +819,8 @@ try {
   $achFile = Join-Path $userDir 'config\librarycache\achievement_progress.json'
   if (Test-Path -LiteralPath $achFile) {
     foreach ($pair in (Get-Content -LiteralPath $achFile -Raw -Encoding UTF8 | ConvertFrom-Json).mapCache) {
-      if ($pair[1].total -gt 0) { $ach[[long]$pair[0]] = [ordered]@{ unlocked = [int]$pair[1].unlocked; total = [int]$pair[1].total } }
+      $aid = ToAppId $pair[0]
+      if ($aid -ge 0 -and $pair[1].total -gt 0) { $ach[$aid] = [ordered]@{ unlocked = [int]$pair[1].unlocked; total = [int]$pair[1].total } }
     }
   }
 } catch { $ach = @{} }
@@ -852,6 +866,8 @@ $remote = Join-Path $userDir '760\remote'
 if ($MaxScreenshots -gt 0 -and (Test-Path -LiteralPath $remote)) {
   $found = New-Object System.Collections.ArrayList
   foreach ($d in Get-ChildItem -LiteralPath $remote -Directory | Where-Object { $_.Name -match '^\d+$' }) {
+    $shotId = ToAppId $d.Name
+    if ($shotId -lt 0) { continue }
     $sd = Join-Path $d.FullName 'screenshots'
     if (-not (Test-Path -LiteralPath $sd)) { continue }
     foreach ($f in Get-ChildItem -LiteralPath $sd -File | Where-Object { $_.Extension -match '^\.(jpe?g|png)$' }) {
@@ -860,7 +876,7 @@ if ($MaxScreenshots -gt 0 -and (Test-Path -LiteralPath $remote)) {
         try { $t = [DateTimeOffset]::new((Get-Date -Year $Matches[1] -Month $Matches[2] -Day $Matches[3] -Hour $Matches[4] -Minute $Matches[5] -Second $Matches[6])).ToUnixTimeSeconds() } catch { $t = 0L }
       }
       if (-not $t) { $t = [DateTimeOffset]::new($f.LastWriteTimeUtc).ToUnixTimeSeconds() }
-      [void]$found.Add([pscustomobject]@{ appid = [long]$d.Name; file = $f; time = $t })
+      [void]$found.Add([pscustomobject]@{ appid = $shotId; file = $f; time = $t })
     }
   }
   $pick = @($found | Sort-Object time -Descending | Select-Object -First $MaxScreenshots)

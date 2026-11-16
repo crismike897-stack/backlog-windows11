@@ -14,7 +14,8 @@ window.BACKLOG_CONFIG = {
   // condensed clock under a LOCAL TIME heading). One scene can have its own: sceneOptions: { mosaic: { clockStyle: 'thin' } }.
   clock: { hour12: true, seconds: false, style: 'label' },
 
-  // The small clock in a corner, on scenes that don't draw their own. clock: 'auto', 'always' or 'never'.
+  // clock: 'auto' shows each scene's clock, 'never' hides the clock everywhere, 'always' swaps it for a small
+  // plain clock in a corner. date, battery and idle are that small clock's extra lines.
   overlay: { clock: 'auto', date: true, battery: true, idle: true },
 
   // Care for OLED screens (the Steam Deck OLED, OLED TVs): nothing bright sits still for long.
