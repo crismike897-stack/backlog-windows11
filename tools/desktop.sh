@@ -12,9 +12,9 @@ tell() { # tell <msgbox|error> <text>
 
 case "$1" in
   install)
-    # Two questions first (pop-ups on SteamOS and other KDE desktops). Cancel either one and that setting is left
+    # Three questions first (pop-ups on SteamOS and other KDE desktops). Cancel any one and that setting is left
     # as it is: the defaults on a first install, your own choice on a later one.
-    scenes=""; minutes=""
+    scenes=""; minutes=""; clock=""
     if have_dialog; then
       picked=$(kdialog --title "Backlog" --separate-output --checklist "Which scenes should play? The highlighted ones will. Tap a scene to turn it off or back on." \
         mosaic "Mosaic: your covers gather into the art of one game" on \
@@ -25,10 +25,16 @@ case "$1" in
       minutes=$(kdialog --title "Backlog" --radiolist "How long should each scene stay before the next one?" \
         1 "1 minute" off 3 "3 minutes" off 5 "5 minutes" on 10 "10 minutes" off 15 "15 minutes" off 30 "30 minutes" off 2>/dev/null) || minutes=""
       minutes=$(printf '%s' "$minutes" | tr -d '" \n')
+      clock=$(kdialog --title "Backlog" --radiolist "What should the corner of the screen show?" \
+        all "The time, the date, and your games and total hours" on \
+        clock "Only the time and date" off \
+        none "Nothing" off 2>/dev/null) || clock=""
+      clock=$(printf '%s' "$clock" | tr -d '" \n')
     fi
     set --
     if [ -n "$scenes" ]; then set -- "$@" --scenes "$scenes"; fi
     if [ -n "$minutes" ]; then set -- "$@" --minutes "$minutes"; fi
+    if [ -n "$clock" ]; then set -- "$@" --clock "$clock"; fi
     if sh "$here/install.sh" "$@"; then
       tell msgbox "Backlog is installed.
 

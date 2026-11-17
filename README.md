@@ -40,14 +40,18 @@ Download the latest zip from [Releases](../../releases/latest) and unzip it.
 ### Steam Deck
 
 1. Switch to Desktop Mode (Steam button > Power > Switch to Desktop).
-2. Unzip the download, open the folder and double-click **Install Backlog**. It asks two things: which scenes you
-   want, and how long each should stay. Then a window shows the install and a pop-up says it is done.
+2. Unzip the download, open the folder and double-click **Install Backlog**. It asks three things: which scenes you
+   want, how long each should stay, and what the clock in the corner shows. Then a window shows the install and a pop-up says it is done.
 3. Go back to Game Mode, open Settings > Customization > Screensaver and pick **backlog**.
 
-Changed your mind about the scenes or the timing? Double-click **Install Backlog** again and pick again.
+Changed your mind about the scenes, the timing or the clock? Double-click **Install Backlog** again and pick again.
+
+**Updating:** download the new version, unzip it and double-click **Install Backlog** in the new folder (it may be
+named `backlog 1` if your old download is still there). There is nothing to uninstall first and your settings are
+kept. Afterwards you can delete the download folders, old and new.
 
 Prefer a terminal? `sh ~/Downloads/backlog/tools/install.sh` does the same thing, with every scene on, five minutes
-each. Add `--scenes mosaic,drift --minutes 10` to choose.
+each. Add `--scenes mosaic,drift --minutes 10` to choose, and `--clock clock` or `--clock none` for less in the corner.
 
 ### Windows (Steam Big Picture)
 
@@ -66,10 +70,13 @@ To pick which scenes play and for how long, add `-Scenes` and `-Minutes` (now or
 powershell -ExecutionPolicy Bypass -File tools\sync.ps1 -Install -Scenes mosaic,drift -Minutes 10
 ```
 
+`-Clock` picks what the clock in the corner shows: `all`, `clock` (the time and date, without your games and
+total hours) or `none`.
+
 ### Linux
 
-`sh tools/install.sh`, then pick it in Steam's Big Picture mode the same way. It needs Python 3. `--scenes` and
-`--minutes` work here too. The same script should work on a Mac, but I haven't been able to test one.
+`sh tools/install.sh`, then pick it in Steam's Big Picture mode the same way. It needs Python 3. `--scenes`,
+`--minutes` and `--clock` work here too. The same script should work on a Mac, but I haven't been able to test one.
 
 ## It keeps itself up to date
 
@@ -91,8 +98,8 @@ Every line is explained there. The ones people change most:
 |---|---|
 | `scenes` | Which scenes play, and in what order: `mosaic`, `drift`, `flip`, `ripple`. The installer sets this for you. One more is included but off: `ripple2`, a deeper Ripple. |
 | `minutesPerScene`, `shuffle` | How long each scene stays, and whether the order is random. |
-| `clock` | 12 or 24 hour, seconds, and the style: `label`, `thin`, `segment` or `caption`. |
-| `overlay.clock` | `'never'` hides the clock in every scene. |
+| `clock` | 12 or 24 hour, and seconds. |
+| `clock.show` | What the clock corner shows: `'all'`, `'clock'` (the time and date, without your games and total hours) or `'none'` (no clock). The installer sets this for you. |
 | `featured` | Your favorites. The whole library still fills the scenes, but only these games take the spotlight and make Mosaic's pictures. |
 | `library.exclude` | Games to never show, by name or app id. |
 | `library.merge` | Show several entries as one game with the hours added up. Entries with the same name join on their own. |

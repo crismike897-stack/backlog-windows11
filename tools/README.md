@@ -24,8 +24,8 @@ Then open Big Picture mode (the setting is only there) and go to Settings > Cust
 ## Steam Deck
 
 **Desktop Mode, no typing:** Steam button > Power > Switch to Desktop. Unzip the download (for example into
-`~/Downloads/backlog`), open the folder and double-click **Install Backlog**. It asks which scenes you want and how
-long each should stay (cancel a question and that setting is left as it is), then a window shows the install and a
+`~/Downloads/backlog`), open the folder and double-click **Install Backlog**. It asks which scenes you want, how
+long each should stay and what the clock in the corner shows (cancel a question and that setting is left as it is), then a window shows the install and a
 pop-up says it is done. Double-click it again any time to choose differently. To remove it later, double-click **Uninstall Backlog** (or run
 `python3 ~/.local/share/backlog/sync.py --uninstall`).
 
@@ -58,6 +58,7 @@ the download folder can be deleted. Install with `--no-schedule` to skip it; tur
 | `-Install` | `--install` | Copy this repo's `backlog` folder into Steam's screensaver folder first. Your `config.js` there is kept. |
 | `-Scenes mosaic,drift` | `--scenes mosaic,drift` | Which scenes play, in order: `mosaic`, `drift`, `flip`, `ripple`, plus `ripple2`. Writes the `scenes` line of the installed `config.js`. Works with or without the install flag. |
 | `-Minutes <n>` | `--minutes <n>` | How long each scene stays (default 5). Writes `minutesPerScene` in `config.js`. |
+| `-Clock clock` | `--clock clock` | What the clock corner shows: `all`, `clock` (the time and date only) or `none`. Writes `clock.show` in `config.js`. |
 | `-Target <dir>` | `--target <dir>` | Write into another `backlog` folder. Default: `<Steam>/config/uioverrides/screensavers/backlog`. |
 | `-MaxScreenshots <n>` | `--max-screenshots <n>` | Newest screenshots to copy (default 60; 0 for none). |
 | `-MaxGames <n>` | `--max-games <n>` | Keep only the n most recently played (default 0, all). |

@@ -9,14 +9,10 @@ window.BACKLOG_CONFIG = {
   minutesPerScene: 5,     // how long each scene stays
   transition: 'tv',       // tv (the picture folds to a line and the next opens from one), fade, glitch or cut
 
-  // style: the clock in the lower-left corner of the cover scenes (Drift, Flip, Mosaic, Ripple and the rest):
-  // 'label' (a museum placard), 'thin' (big light figures), 'segment' (the seven-segment clock) or 'caption' (a tall
-  // condensed clock under a LOCAL TIME heading). One scene can have its own: sceneOptions: { mosaic: { clockStyle: 'thin' } }.
-  clock: { hour12: true, seconds: false, style: 'label' },
-
-  // clock: 'auto' shows each scene's clock, 'never' hides the clock everywhere, 'always' swaps it for a small
-  // plain clock in a corner. date, battery and idle are that small clock's extra lines.
-  overlay: { clock: 'auto', date: true, battery: true, idle: true },
+  // The clock in the lower-left corner of every scene.
+  // show: 'all' (the time, the date, and how many games and hours your library holds), 'clock' (only the time
+  // and date) or 'none' (no clock). Each game's own hours still show beside it in the spotlight.
+  clock: { hour12: true, seconds: false, show: 'all' },
 
   // Care for OLED screens (the Steam Deck OLED, OLED TVs): nothing bright sits still for long.
   // pixelShift nudges the whole picture a few pixels every minute. dim is the brightness (1 = full).

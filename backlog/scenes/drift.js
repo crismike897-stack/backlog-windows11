@@ -1,16 +1,15 @@
 /* Drift: the library as an endless wall of covers on a tilted plane. The camera drifts; every so often it slows
    and one cover lifts off the wall toward you, its light spilling on the neighbours, with its name and hours beside
-   it, set like a title card. The house seven-segment clock sits in the dark corner. A faint haze of the theme's color
+   it, set like a title card. The clock sits in the dark corner. A faint haze of the theme's color
    hangs over the far edge.
    Plain DOM with CSS 3D: the camera is one transform per frame, a tile is touched only when it wraps round.
    Options (config.sceneOptions.drift): clock (true), spotlight (seconds between lifts, 16; 0 = never),
-   speed (1), focus (true: the tilt-shift blur at the far edge; false saves GPU on very slow machines),
-   clockStyle (the clock corner's style for this scene alone: segment, thin, label or caption; see config.clock.style). */
+   speed (1), focus (true: the tilt-shift blur at the far edge; false saves GPU on very slow machines). */
 BACKLOG.scene({
   id: 'drift', name: 'Drift', overlay: 'none',
   mount: function (root, ctx) {
     var opt = ctx.options('drift');
-    var showClock = opt.clock !== false && ctx.config.overlay.clock === 'auto';
+    var showClock = opt.clock !== false && ctx.clockShown();
     var every = opt.spotlight == null ? 16 : +opt.spotlight;
     var speed = opt.speed == null ? 1 : +opt.speed;
     var games = ctx.games, n = games.length;
@@ -78,7 +77,7 @@ BACKLOG.scene({
     el('div', 'bl-h-rule b', cap);
     var capLine = el('div', 'bl-drift-cline bl-cap-line', cap);
     var capAch = el('div', 'bl-drift-ach', cap); // small: achievements, under the hours
-    // The clock corner (core's ctx.clockCorner; its style is config.clock.style or sceneOptions.drift.clockStyle).
+    // The clock corner is core's (ctx.clockCorner).
     var clockUi = showClock ? ctx.clockCorner({ parent: root, title: 'DRIFT // ' + n + (n === 1 ? ' TITLE' : ' TITLES') }) : null;
     void far;
 

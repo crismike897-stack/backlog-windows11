@@ -12,7 +12,7 @@ BACKLOG.scene({
   id: 'mosaic', name: 'Mosaic', overlay: 'none',
   mount: function (root, ctx) {
     var opt = ctx.options('mosaic');
-    var showClock = opt.clock !== false && ctx.config.overlay.clock === 'auto';
+    var showClock = opt.clock !== false && ctx.clockShown();
     var CYCLE = Math.max(24, +ctx.params.get('mosaic-cycle') || (opt.cycle == null ? 36 : +opt.cycle)); // ?mosaic-cycle= overrides it
     // ?mosaic-quick=N,S, for recording a short clip: after the first picture, the next N pictures each stay S seconds and the
     // camera stays back, so the tiles turn from picture to picture in a quick run; then the cycle goes on as usual.
@@ -75,7 +75,7 @@ BACKLOG.scene({
     el('div', 'bl-h-rule b', cap);
     var capLine = el('div', 'bl-mosaic-cline bl-cap-line', cap);
     var capAch = el('div', 'bl-mosaic-ach', cap); // small: achievements, under the hours
-    // The clock corner is core's (ctx.clockCorner); its style is config.clock.style or this scene's clockStyle.
+    // The clock corner is core's (ctx.clockCorner).
     var clockUi = showClock ? ctx.clockCorner({ parent: root, title: 'MOSAIC // ' + n + (n === 1 ? ' TITLE' : ' TITLES') }) : null;
     var rankOf = {}; ctx.top.forEach(function (g, i) { rankOf[g.appid] = i + 1; });
 

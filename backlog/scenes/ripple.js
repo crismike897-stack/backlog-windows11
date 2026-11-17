@@ -15,7 +15,7 @@ BACKLOG.scene({
     var self = this || {};
     var opt = Object.assign({}, self.defaults || {}, ctx.options(self.id || 'ripple'));
     root.classList.add('bl-ripple');
-    var showClock = opt.clock !== false && ctx.config.overlay.clock === 'auto';
+    var showClock = opt.clock !== false && ctx.clockShown();
     var every = opt.spotlight == null ? 18 : +opt.spotlight;
     var AMP = Math.max(0, Math.min(2, opt.amplitude == null ? 1 : +opt.amplitude || 0));
     var SPD = Math.max(0.2, Math.min(3, opt.speed == null ? 1 : +opt.speed || 1));
@@ -66,7 +66,7 @@ BACKLOG.scene({
     el('div', 'bl-h-rule b', cap);
     var capLine = el('div', 'bl-ripple-cline bl-cap-line', cap);
     var capAch = el('div', 'bl-ripple-ach', cap); // small: achievements, under the hours
-    // The clock corner is core's (ctx.clockCorner); its style is config.clock.style or this scene's clockStyle.
+    // The clock corner is core's (ctx.clockCorner).
     var clockUi = showClock ? ctx.clockCorner({ parent: root, title: (self.label || 'RIPPLE') + ' // ' + n + (n === 1 ? ' TITLE' : ' TITLES') }) : null;
     var rankOf = {}; ctx.top.forEach(function (g, i) { rankOf[g.appid] = i + 1; });
 

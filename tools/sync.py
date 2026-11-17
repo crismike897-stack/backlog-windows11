@@ -11,6 +11,7 @@ Usage:
   python3 sync.py --uninstall          remove Backlog from Steam and turn the automatic refresh off
   python3 sync.py --scenes mosaic,drift --minutes 5
                                        which scenes play and how long each stays (written into config.js)
+  python3 sync.py --clock clock        what the clock corner shows: all, clock (the time and date only) or none
   python3 sync.py --target DIR         sync into another backlog folder
   python3 sync.py --max-screenshots 60 --max-games 0 --include-unplayed --account "persona name" --steam DIR
   python3 sync.py --list-accounts
@@ -533,9 +534,32 @@ def parse_scenes(text):
     return [n for i, n in enumerate(names) if n not in names[:i]]
 
 
-def set_choices(target, scenes, minutes):
-    """Write the installer's choices into config.js: which scenes play and how many minutes each stays.
-    Only those two lines change; a line that is missing is added at the top of the settings."""
+CLOCK_CHOICES = ('all', 'clock', 'none')
+
+
+def parse_clock(text):
+    """'Clock' -> 'clock'; stops with a plain message on a word that is not one of the three choices."""
+    name = text.strip().lower()
+    if name not in CLOCK_CHOICES:
+        sys.exit('--clock: pick from %s (got %r)' % (', '.join(CLOCK_CHOICES), text))
+    return name
+
+
+def put_clock(text, choice, nl):
+    """config.js with clock.show set to that choice, or None when its clock setting is not in a shape this knows."""
+    value = "'%s'" % choice
+    # the setting itself, never the note above it that explains it (a line starting with //)
+    out, n = re.subn(r"""^((?![ \t]*//)[^\r\n]*?\bshow:\s*)(?:'[^'\r\n]*'|"[^"\r\n]*"|\{[^{}]*\})""", lambda m: m.group(1) + value, text, count=1, flags=re.M)
+    if not n:  # a settings file from before the choice existed: the clock setting is one line, without show
+        out, n = re.subn(r'^([ \t]*clock:\s*\{[^{}\r\n]*?)[ \t]*\}', lambda m: m.group(1) + ', show: %s }' % value, text, count=1, flags=re.M)
+    if not n and not re.search(r'^[ \t]*clock:', text, flags=re.M):
+        out, n = re.subn(r'(BACKLOG_CONFIG\s*=\s*\{[ \t]*\r?\n)', lambda m: m.group(1) + '  clock: { show: %s },%s' % (value, nl), text, count=1)
+    return out if n else None
+
+
+def set_choices(target, scenes, minutes, clock=None):
+    """Write the installer's choices into config.js: which scenes play, how many minutes each stays, and what
+    the clock corner shows. Only those settings change; a line that is missing is added at the top."""
     path = os.path.join(target, 'config.js')
     with open(path, encoding='utf-8', newline='') as f:
         text = f.read()
@@ -555,6 +579,13 @@ def set_choices(target, scenes, minutes):
     if minutes:
         text = put(text, r'^([ \t]*minutesPerScene:\s*)[0-9.]+', 'minutesPerScene', ('%g' % minutes))
         log('  minutes per scene: %g' % minutes)
+    if clock is not None:
+        changed = put_clock(text, clock, nl)
+        if changed is None:
+            log('  clock: left as it is (the clock setting in config.js is not in a shape the installer knows)')
+        else:
+            text = changed
+            log('  clock corner:', {'all': 'everything', 'clock': 'the time and date only', 'none': 'off'}[clock])
     with open(path, 'w', encoding='utf-8', newline='') as f:
         f.write(text)
 
@@ -750,12 +781,14 @@ def main():
     ap.add_argument('--uninstall', action='store_true', help='remove Backlog from Steam and turn the automatic refresh off')
     ap.add_argument('--scenes', help='which scenes play, in order, as a comma list: ' + ', '.join(SCENES))
     ap.add_argument('--minutes', type=float, default=0, help='minutes each scene stays (for example 5)')
+    ap.add_argument('--clock', help='what the clock corner shows: all, clock (the time and date only) or none')
     ap.add_argument('--api-key', help='your Steam Web API key, for up-to-date playtime from every device (optional; '
                     'also read from STEAM_API_KEY or %s)' % key_file())
     ap.add_argument('--api-response-file', help=argparse.SUPPRESS)  # test only: a JSON file in place of the API call
     ap.add_argument('--cdn-base', default=CDN, help=argparse.SUPPRESS)  # test only: where missing art is fetched from
     a = ap.parse_args()
     scenes = parse_scenes(a.scenes) if a.scenes else None
+    clock = parse_clock(a.clock) if a.clock else None
     if a.minutes and not 0.25 <= a.minutes <= 240:
         sys.exit('--minutes: between 0.25 and 240')
     if a.uninstall:
@@ -799,8 +832,8 @@ def main():
         install(src, target)
     if not os.path.isfile(os.path.join(target, 'index.html')):
         sys.exit('No Backlog screensaver at %s. Run with --install, or pass --target.' % target)
-    if scenes or a.minutes:
-        set_choices(target, scenes, a.minutes)
+    if scenes or a.minutes or clock is not None:
+        set_choices(target, scenes, a.minutes, clock)
     lib = os.path.join(target, 'library')
     os.makedirs(lib, exist_ok=True)
     lock = lock_library(lib)  # held until this run ends; a timed refresh that starts meanwhile waits its turn

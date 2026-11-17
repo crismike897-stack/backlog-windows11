@@ -70,7 +70,7 @@ BACKLOG.scene({
         el('div', 'bl-h-rule b', cap);
         k.capLine = el('div', p + 'cline bl-cap-line', cap);
         k.capAch = el('div', p + 'ach', cap); // small: achievements, under the hours
-        // The clock corner is core's (ctx.clockCorner); its style is config.clock.style or this scene's clockStyle.
+        // The clock corner is core's (ctx.clockCorner).
         if (showClock) { k.clockUi = ctx.clockCorner({ parent: root, title: title }); k.clock = k.clockUi.box; }
       };
       k.tickClock = function (t) { if (k.clockUi) k.clockUi.tick(t); }; // the time when the minute turns, and the slow wander
@@ -168,7 +168,7 @@ BACKLOG.scene({
     }
     // ================================================================ end of the kit
 
-    var showClock = opt.clock !== false && ctx.config.overlay.clock === 'auto';
+    var showClock = opt.clock !== false && ctx.clockShown();
     var K = famKit('bl-flip-', 'FLIP // ' + n + (n === 1 ? ' TITLE' : ' TITLES'), showClock);
 
     ctx.css('bl-flip-css', [

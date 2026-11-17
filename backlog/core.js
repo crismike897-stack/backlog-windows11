@@ -1,4 +1,4 @@
-/* Backlog core: settings, library, scene rotation, transitions, the overlay and burn-in care.
+/* Backlog core: settings, library, scene rotation, transitions, the clock corner and burn-in care.
    Plain script (Steam loads the page in its own browser with no build step). Scenes register with BACKLOG.scene(). */
 (function () {
   'use strict';
@@ -9,8 +9,8 @@
     shuffle: true,
     minutesPerScene: 5,
     transition: 'tv',         // tv | fade | glitch | cut
-    clock: { hour12: true, seconds: false, style: 'segment' }, // style: the cover scenes' clock corner (ctx.clockCorner)
-    overlay: { clock: 'auto', date: true, battery: true, idle: true }, // clock: auto | always | never
+    clock: { hour12: true, seconds: false, show: 'all' }, // show: 'all' | 'clock' (time and date only) | 'none'
+    overlay: { clock: 'auto' }, // 'never' hides the clock corner in every scene
     oled: { pixelShift: true, shiftPx: 10, dim: 1, nightDim: { from: 23, to: 7, level: 0.6 }, blackAfterMinutes: 0, blackClock: true },
     library: { recentDays: 0, minMinutes: 0, exclude: [] },
     featured: [],             // names: only these step into the spotlight and make Mosaic's pictures (empty: any game)
@@ -289,64 +289,6 @@
     return ((h * 60) + 360) % 360;
   }
 
-  // The house seven-segment clock (the Title Card's, which is KIDŌ's geometry): unlit segments faintly there, a lean,
-  // the accent glow. Returns { el, draw }: put el in the page, size it with heightU (design units), call draw() as often
-  // as you like (it only redraws when the shown time changes). opts: heightU (default 76), seconds (default the
-  // config's), ampm (true), dim (unlit segment strength, .08).
-  var SVGNS = 'http://www.w3.org/2000/svg';
-  var SEG7 = (function () {
-    var g = 4, l = 8, r = 52, t = 8, m = 50, b = 92;
-    return [[l + g, t, r - g, t], [r, t + g, r, m - g], [r, m + g, r, b - g], [l + g, b, r - g, b], [l, m + g, l, b - g], [l, t + g, l, m - g], [l + g, m, r - g, m]];
-  })();
-  var SEG7_DIGITS = ['abcdef', 'bc', 'abdeg', 'abcdg', 'bcfg', 'acdfg', 'acdefg', 'abc', 'abcdefg', 'abcdfg'];
-  function segDigit(d, x, y, size, out) {
-    var k = size / 100, t = 11 * k, lit = d < 0 ? '' : SEG7_DIGITS[d];
-    for (var i = 0; i < 7; i++) {
-      var s = SEG7[i], x1 = x + s[0] * k, y1 = y + s[1] * k, x2 = x + s[2] * k, y2 = y + s[3] * k, pts;
-      if (y1 === y2) pts = [x1, y1, x1 + t / 2, y1 - t / 2, x2 - t / 2, y1 - t / 2, x2, y1, x2 - t / 2, y1 + t / 2, x1 + t / 2, y1 + t / 2];
-      else pts = [x1, y1, x1 + t / 2, y1 + t / 2, x1 + t / 2, y2 - t / 2, x1, y2, x1 - t / 2, y2 - t / 2, x1 - t / 2, y1 + t / 2];
-      var poly = '<polygon points="' + pts.map(function (v) { return v.toFixed(1); }).join(' ') + '"/>';
-      if (lit.indexOf('abcdefg'[i]) >= 0) out.on += poly; else out.off += poly;
-    }
-  }
-  function segClock(opts) {
-    opts = opts || {};
-    var withSec = opts.seconds == null ? config.clock.seconds : !!opts.seconds;
-    var withAp = opts.ampm !== false && config.clock.hour12;
-    var dimA = opts.dim == null ? 0.08 : opts.dim;
-    var big = 100, dw = big * .58 + big * .06, colon = big * .09 + big * .1, small = big * .6, sw = small * .58 + big * .036;
-    var W = big * .12 + 4 * dw + colon + (withSec ? colon + 2 * sw : 0) + (withAp ? big * .62 : 0) + 8, H = big * 1.02;
-    var svg = document.createElementNS(SVGNS, 'svg');
-    svg.setAttribute('class', 'bl-h-seg');
-    svg.setAttribute('viewBox', '-4 -4 ' + W.toFixed(1) + ' ' + (H + 4).toFixed(1));
-    var hU = opts.heightU || 76;
-    svg.style.height = 'calc(' + hU + ' * var(--u))';
-    svg.style.width = 'calc(' + (hU * W / (H + 4)).toFixed(2) + ' * var(--u))';
-    var last = '';
-    function colonAt(x, out) {
-      var s = big * .09;
-      out.on += '<rect x="' + x.toFixed(1) + '" y="' + big * .28 + '" width="' + s + '" height="' + s + '"/><rect x="' + x.toFixed(1) + '" y="' + big * .66 + '" width="' + s + '" height="' + s + '"/>';
-      return x + colon;
-    }
-    function draw() {
-      var t = fmtTime(), key = t.text + t.ampm + (withSec ? t.s : '');
-      if (key === last) return false;
-      last = key;
-      var out = { on: '', off: '' }, x = 0, hh = t.h.length < 2 ? ' ' + t.h : t.h, i;
-      for (i = 0; i < 2; i++) { segDigit(hh[i] === ' ' ? -1 : +hh[i], x, 0, big, out); x += dw; }
-      x = colonAt(x, out);
-      for (i = 0; i < 2; i++) { segDigit(+t.m[i], x, 0, big, out); x += dw; }
-      if (withSec) { x = colonAt(x, out); for (i = 0; i < 2; i++) { segDigit(+t.s[i], x, big - small, small, out); x += sw; } }
-      svg.innerHTML = '<g transform="matrix(1,0,-0.12,1,' + big * .12 + ',0)">' +
-        '<g style="fill:rgba(var(--bl-accent-rgb),' + dimA + ')">' + out.off + '</g>' +
-        '<g style="fill:var(--bl-accent);filter:drop-shadow(0 0 6px rgba(var(--bl-accent-rgb),.55))">' + out.on + '</g></g>' +
-        (withAp && t.ampm ? '<text x="' + (x + big * .3).toFixed(1) + '" y="' + (big * .98).toFixed(1) + '" style="fill:var(--bl-accent)" font-family="Barlow Condensed" font-weight="700" font-size="' + big * .3 + '" letter-spacing="2">' + t.ampm + '</text>' : '');
-      return true;
-    }
-    draw();
-    return { el: svg, draw: draw };
-  }
-
   // The house section head: a small block in the second color, a condensed label and a dim mono note in one row.
   // sizeU is the label's size.
   function head(parent, label, note, sizeU) {
@@ -360,80 +302,52 @@
     return row;
   }
 
-  // The clock corner the cover scenes share: a soft dark scrim in the lower left and the clock on it, in one of four
-  // styles. The style is config.clock.style, overridden per scene by config.sceneOptions.<id>.clockStyle and by
-  // &clock-style= in the URL: 'segment' (the house seven-segment under a LOCAL TIME head with the scene's title),
-  // 'thin' (big light wide figures, the date and hours as one quiet mono line), 'label' (a museum placard, sentence
-  // case) or 'caption' (the spotlight card's twin). No unlit ghost digits outside 'segment', and figures sit in fixed
-  // cells so nothing jumps when a 1 becomes a 2. opts: parent (the scene's root), title (the head's note on
-  // 'segment', e.g. 'MOSAIC // 130 TITLES'), id (whose sceneOptions to read; the mounting scene by default).
-  // Returns { box, style, minute(tm, date), frame(t), redraw(), tick(t), rect(marginU) }: call tick(t) every frame
-  // (it updates the time when the minute turns and keeps up the slow wander, so nothing bright sits still); rect()
-  // is the corner's screen box plus a margin (40 units), { l, t, r, b }, for keeping captions clear of it.
-  var CLOCK_STYLES = ['segment', 'thin', 'label', 'caption'];
+  // The clock corner the cover scenes share: a soft dark scrim in the lower left and, on it, a museum placard in
+  // sentence case: the time, the date, a short rule, then how many games and hours the library holds. Figures sit
+  // in fixed cells so nothing jumps when a 1 becomes a 2. config.clock.show picks how much of it there is: 'all',
+  // 'clock' (the time and date, without the library line) or 'none' (no corner; overlay.clock 'never' means the
+  // same). opts: parent (the scene's root).
+  // Returns { box, minute(tm, date), tick(t), rect(marginU) }: call tick(t) every frame (it updates the time when
+  // the minute turns and keeps up the slow wander, so nothing bright sits still); rect() is the corner's screen
+  // box plus a margin (40 units), { l, t, r, b }, for keeping captions clear of it.
   var DAYS_LONG = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   var MONTHS_LONG = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-  function clockStyleFor(id) {
-    var o = (id && config.sceneOptions[id]) || {};
-    var s = String(params.get('clock-style') || o.clockStyle || config.clock.style || 'segment');
-    return CLOCK_STYLES.indexOf(s) >= 0 ? s : 'segment';
+  function clockShow() {
+    var s = config.clock.show;
+    if (config.overlay.clock === 'never' || s === 'none' || s === false) return 'none';
+    return s === 'clock' ? 'clock' : 'all';
   }
+  function clockShown() { return clockShow() !== 'none'; }
   function clockCorner(opts) {
     opts = opts || {};
-    var parent = opts.parent, style = clockStyleFor(opts.id || (currentDef && currentDef.id));
+    var parent = opts.parent, withLibrary = clockShow() === 'all';
     var n = LIB.games.length, total = 0;
     LIB.games.forEach(function (g) { total += g.playtime || 0; });
-    var hrs = Math.round(total / 60), gamesWord = n + (n === 1 ? ' GAME' : ' GAMES');
-    var statText = hrs > 0 ? hrs.toLocaleString('en-US') + ' HOURS ACROSS ' + gamesWord : gamesWord + ' IN YOUR LIBRARY';
-    var shortDate = function () { return fmtDate() + ' ' + now().getFullYear(); };
+    var hrs = Math.round(total / 60), games = n + (n === 1 ? ' game' : ' games');
     // Each figure in its own fixed cell (em of the parent's size), so the line never shifts.
     function figs(box, text, dw, cw) {
       box.textContent = '';
       for (var i = 0; i < text.length; i++) { var c = text[i]; el('span', 'bl-cc-fig', box, c).style.width = (c === ':' ? cw : dw) + 'em'; }
     }
     el('div', 'bl-cc-scrim', parent);
-    var box = el('div', 'bl-cc bl-cc-' + style, parent);
-    var ui = { box: box, style: style, minute: function () {}, frame: function () {}, redraw: function () {} };
-
-    if (style === 'segment') {
-      head(box, 'LOCAL TIME', opts.title || '', 24);
-      var seg = segClock({ heightU: 150, dim: 0.06 });
-      box.appendChild(seg.el);
-      el('div', 'bl-h-rule', box);
-      var sDate = el('div', 'bl-cc-date bl-h-sub', box);
-      if (hrs > 0) el('div', 'bl-cc-stat bl-h-mono', box, statText);
-      ui.minute = function () { sDate.textContent = shortDate(); };
-      ui.frame = function () { seg.draw(); };
-    } else if (style === 'thin') {
-      var tRow = el('div', 'bl-cc-th-row', box), tTime = el('div', 'bl-cc-th-time', tRow), tAp = el('div', 'bl-cc-th-ap', tRow);
-      el('div', 'bl-cc-th-rule', box);
-      var tLine = el('div', 'bl-cc-th-line bl-h-mono', box), tDate = el('span', 'a', tLine);
-      el('span', null, tLine, statText);
-      ui.minute = function (tm) { figs(tTime, tm.text, .66, .27); tAp.textContent = tm.ampm; tDate.textContent = shortDate(); };
-    } else if (style === 'label') {
-      var lTime = el('div', 'bl-cc-lb-time', box), lFig = el('span', null, lTime), lAp = el('span', 'bl-cc-lb-ap', lTime);
-      var lDate = el('div', 'bl-cc-lb-date', box);
+    var box = el('div', 'bl-cc bl-cc-label', parent);
+    var lTime = el('div', 'bl-cc-lb-time', box), lFig = el('span', null, lTime), lAp = el('span', 'bl-cc-lb-ap', lTime);
+    var lDate = el('div', 'bl-cc-lb-date', box);
+    if (withLibrary) {
       el('div', 'bl-cc-lb-rule', box);
-      el('div', 'bl-cc-lb-line', box, n + (n === 1 ? ' game, ' : ' games, ') + (hrs > 0 ? hrs.toLocaleString('en-US') + ' hours played' : 'your library'));
-      ui.minute = function (tm, d) {
-        figs(lFig, tm.text, .74, .3); lAp.textContent = tm.ampm;
-        lDate.textContent = DAYS_LONG[d.getDay()] + ', ' + MONTHS_LONG[d.getMonth()] + ' ' + d.getDate() + ', ' + d.getFullYear();
-      };
-    } else { // caption
-      var cHead = head(box, 'LOCAL TIME', '', 22);
-      el('div', 'bl-h-rule', box);
-      var cTime = el('div', 'bl-cc-ca-time bl-h-big', box), cFig = el('span', null, cTime), cAp = el('span', 'bl-cc-ca-ap', cTime);
-      el('div', 'bl-h-rule', box);
-      el('div', 'bl-cc-ca-line bl-h-sub', box, statText);
-      ui.minute = function (tm) { figs(cFig, tm.text, .5, .22); cAp.textContent = tm.ampm; cHead._note.textContent = shortDate(); };
+      el('div', 'bl-cc-lb-line', box, hrs > 0 ? games + ', ' + hrs.toLocaleString('en-US') + (hrs === 1 ? ' hour played' : ' hours played') : games + ' in your library');
     }
+    var ui = { box: box };
+    ui.minute = function (tm, d) {
+      figs(lFig, tm.text, .74, .3); lAp.textContent = tm.ampm;
+      lDate.textContent = DAYS_LONG[d.getDay()] + ', ' + MONTHS_LONG[d.getMonth()] + ' ' + d.getDate() + ', ' + d.getFullYear();
+    };
 
     var lastKey = '';
     function update() { var tm = fmtTime(), k = tm.text + tm.ampm; if (k !== lastKey) { lastKey = k; ui.minute(tm, now()); } }
     update(); // filled in from the start, so rect() is the real size before the first frame
     ui.tick = function (t) {
       update();
-      ui.frame(t);
       // A slow wander so the big numerals never sit on the same pixels.
       box.style.transform = 'translate(' + (Math.sin(t / 89) * 34 * ctx.u).toFixed(1) + 'px,' + (Math.sin(t / 61 + 1) * -22 * ctx.u).toFixed(1) + 'px)';
     };
@@ -447,7 +361,7 @@
   // A game's achievements, small: "33 / 76 ACHIEVEMENTS" and a thin accent bar, or a check and "ALL 42 ACHIEVEMENTS"
   // when every one is unlocked. null when the game has no achievements on record (non-Steam games, some demos).
   // Secondary by design: mono, dim, under the hours and last played. opts: sizeU (text size, 15), barU (bar length,
-  // 120), px (true inside a stage that is already scaled to design pixels, as the Title Card and KIDŌ are).
+  // 120), px (true inside a stage that is already scaled to design pixels, as some scenes are).
   function achievement(game) {
     var a = game && game.achievements, t = a && +a.total, n = a ? Math.max(0, Math.min(t, +a.unlocked || 0)) : 0;
     return t > 0 ? { unlocked: n, total: t, all: n >= t, share: n / t } : null;
@@ -506,8 +420,9 @@
     idleSince: function () { return idleStart; },   // ms (ctx.nowMs clock) when the screensaver started
     seed: seed,
     get theme() { return theme || readTheme(); },  // { accent, accentRgb, hi, lo, second, ink, dim, hue, rgba(a) ... }
-    segClock: segClock, head: head,  // head(parent, label, note, sizeU)
-    clockCorner: clockCorner, clockStyle: clockStyleFor,  // clockCorner({ parent, title }), the cover scenes' clock
+    head: head,  // head(parent, label, note, sizeU)
+    // clockCorner({ parent }), the cover scenes' clock; clockShown(): false when it is switched off
+    clockCorner: clockCorner, clockShown: clockShown,
     achievement: achievement, achieve: achieve
   };
 
@@ -522,7 +437,6 @@
     sceneStart = performance.now(); sceneT = 0;
     document.body.setAttribute('data-scene', id);
     store('last', id);
-    overlayMode();
     return true;
   }
 
@@ -589,34 +503,7 @@
     }, 340);
   }
 
-  // ------------------------------------------------------------------ overlay (the small clock some scenes ask for)
-  var ov = null, ovCorner = 0, ovMoved = 0;
-  var CORNERS = ['br', 'bl', 'tl', 'tr'];
-  function overlayMode() {
-    var want = config.overlay.clock === 'always' || (config.overlay.clock === 'auto' && currentDef && currentDef.overlay === 'clock');
-    if (config.overlay.clock === 'never' || (currentDef && currentDef.overlay === 'none' && config.overlay.clock !== 'always')) want = false;
-    if (!ov) {
-      ov = el('div', 'bl-ov ' + CORNERS[0], overlay);
-      ov._clock = segClock({ heightU: 58 });
-      ov.appendChild(ov._clock.el);
-      el('div', 'bl-h-rule faint', ov).style.alignSelf = 'stretch';
-      ov._line = el('div', 'bl-ov-line bl-h-mono', ov);
-    }
-    ov.classList.toggle('on', !!want);
-    if (currentDef && currentDef.overlayCorner) setCorner(CORNERS.indexOf(currentDef.overlayCorner));
-  }
-  function setCorner(i) { ovCorner = (i + 4) % 4; ov.className = 'bl-ov ' + CORNERS[ovCorner] + (ov.classList.contains('on') ? ' on' : ''); }
   var idleStart = nowMs();
-  function overlayTick() {
-    if (!ov || !ov.classList.contains('on')) return;
-    ov._clock.draw();
-    var bits = [];
-    if (config.overlay.date) bits.push(fmtDate());
-    var b = batteryInfo();
-    if (config.overlay.battery && b) bits.push(Math.round(b.level * 100) + '%' + (b.charging ? ' +' : ''));
-    if (config.overlay.idle) { var m = Math.floor((nowMs() - idleStart) / 60000); if (m >= 1) bits.push('IDLE ' + (m >= 60 ? Math.floor(m / 60) + 'H ' + pad(m % 60) + 'M' : m + ' MIN')); }
-    ov._line.textContent = bits.join('  //  ');
-  }
 
   // ------------------------------------------------------------------ burn-in care
   var shiftAt = 0, shiftStep = 0;
@@ -681,10 +568,9 @@
     var sec = Math.floor(ms / 1000);
     if (sec !== lastSec) {
       lastSec = sec;
-      overlayTick(); pixelShift(ms); if (sec % 30 === 0) dimTick();
+      pixelShift(ms); if (sec % 30 === 0) dimTick();
       blackTick(ms); blackClockTick();
       if (blackOn) { requestAnimationFrame(frame); return; }
-      if (ms - ovMoved > 120000) { ovMoved = ms; if (ov && !(currentDef && currentDef.overlayCorner)) setCorner(ovCorner + 1); }
       var len = (currentDef && currentDef.minutes) || config.minutesPerScene;
       if (!locked && sceneT > len * 60) swap();
     }

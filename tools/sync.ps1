@@ -50,6 +50,8 @@ param(
   # each stays. Written into the installed config.js; leave them out and config.js is not touched.
   [string]$Scenes,
   [double]$Minutes = 0,
+  # What the clock corner shows: all, clock (the time and date only) or none.
+  [string]$Clock,
   # Optional: your own Steam Web API key, for up-to-date playtime from every device. Also read from the STEAM_API_KEY
   # environment variable or %APPDATA%\backlog\steam-api-key.txt. Never written anywhere, never printed.
   [string]$ApiKey,
@@ -352,8 +354,8 @@ public static class BacklogVdf
 '@
 if (-not ('BacklogVdf' -as [type])) { Add-Type -TypeDefinition $cs -ReferencedAssemblies System.Drawing }
 
-$clock = [Diagnostics.Stopwatch]::StartNew()
-function Log([string]$m) { if ($VerbosePreference -ne 'SilentlyContinue') { $m = ('[{0,5:N1}s] ' -f $clock.Elapsed.TotalSeconds) + $m }; Write-Host $m }
+$stopwatch = [Diagnostics.Stopwatch]::StartNew()
+function Log([string]$m) { if ($VerbosePreference -ne 'SilentlyContinue') { $m = ('[{0,5:N1}s] ' -f $stopwatch.Elapsed.TotalSeconds) + $m }; Write-Host $m }
 function ToInt($v) { $n = 0L; if ($null -ne $v -and [long]::TryParse(([string]$v).Trim(), [ref]$n)) { return $n } return 0L }
 # A folder name or a cache key as an app id, or -1 when it isn't one. A non-Steam game is filed under its 64-bit game
 # id (appid << 32 | 0x02000000), which is too big for Int64: it becomes the unsigned 32-bit appid that game has
@@ -464,8 +466,8 @@ if ($Install) {
 }
 if (-not (Test-Path -LiteralPath (Join-Path $targetDir 'index.html'))) { throw "No Backlog screensaver at $targetDir. Run with -Install, or pass -Target." }
 
-# The two choices: only those lines of config.js change; a line that is missing is added at the top of the settings.
-if ($Scenes -or $Minutes) {
+# The choices: only those settings of config.js change; a line that is missing is added at the top of the settings.
+if ($Scenes -or $Minutes -or $Clock) {
   $all = 'mosaic', 'drift', 'flip', 'ripple', 'ripple2'
   $picked = @()
   foreach ($n in ($Scenes -split ',')) { $n = $n.Trim().ToLower(); if ($n -and $picked -notcontains $n) { $picked += $n } }
@@ -491,6 +493,23 @@ if ($Scenes -or $Minutes) {
     $mv = $Minutes.ToString([Globalization.CultureInfo]::InvariantCulture)
     $cfg = PutLine $cfg '^([ \t]*minutesPerScene:\s*)[0-9.]+' 'minutesPerScene' $mv
     Log "  minutes per scene: $mv"
+  }
+  if ($Clock) {
+    $choice = $Clock.Trim().ToLower()
+    if ('all', 'clock', 'none' -notcontains $choice) { throw "-Clock: pick from all, clock, none (got '$Clock')" }
+    $value = "'$choice'"
+    $multi = [Text.RegularExpressions.RegexOptions]::Multiline
+    $hasShow = New-Object Text.RegularExpressions.Regex('^((?![ \t]*//)[^\r\n]*?\bshow:\s*)(?:''[^''\r\n]*''|"[^"\r\n]*"|\{[^{}]*\})', $multi)
+    $oneLine = New-Object Text.RegularExpressions.Regex('^([ \t]*clock:\s*\{[^{}\r\n]*?)[ \t]*\}', $multi)
+    $anyClock = New-Object Text.RegularExpressions.Regex('^[ \t]*clock:', $multi)
+    $top = New-Object Text.RegularExpressions.Regex('(BACKLOG_CONFIG\s*=\s*\{[ \t]*\r?\n)')
+    $done = $true
+    if ($hasShow.IsMatch($cfg)) { $cfg = $hasShow.Replace($cfg, { param($m) $m.Groups[1].Value + $value }, 1) }
+    elseif ($oneLine.IsMatch($cfg)) { $cfg = $oneLine.Replace($cfg, { param($m) $m.Groups[1].Value + ", show: $value }" }, 1) }
+    elseif (-not $anyClock.IsMatch($cfg) -and $top.IsMatch($cfg)) { $cfg = $top.Replace($cfg, { param($m) $m.Groups[1].Value + "  clock: { show: $value },$nl" }, 1) }
+    else { $done = $false }
+    if ($done) { Log ("  clock corner: " + @{ all = 'everything'; clock = 'the time and date only'; none = 'off' }[$choice]) }
+    else { Log '  clock: left as it is (the clock setting in config.js is not in a shape the installer knows)' }
   }
   [IO.File]::WriteAllText($cfgPath, $cfg, (New-Object Text.UTF8Encoding $false))
 }
@@ -755,7 +774,7 @@ $games = @($games | Sort-Object -Property @{ Expression = 'lastPlayed'; Descendi
 if ($MaxGames -gt 0 -and $games.Count -gt $MaxGames) { $games = @($games[0..($MaxGames - 1)]) }
 
 # ------------------------------------------------------------------ write
-Write-Verbose ('[{0,5:N1}s] Writing {1} games...' -f $clock.Elapsed.TotalSeconds, $games.Count)
+Write-Verbose ('[{0,5:N1}s] Writing {1} games...' -f $stopwatch.Elapsed.TotalSeconds, $games.Count)
 # Remove what an earlier sync wrote for games that are gone, nothing else. Kept folders are reused (fast re-runs).
 $keep = @{}
 foreach ($g in $games) { $keep[[string]$g.appid] = $true }
@@ -859,7 +878,7 @@ foreach ($g in $games) {
 }
 
 if ($fetched -or $dropped) { Log ("Store art: {0} images for games this computer never showed; {1} games had none" -f $fetched, $dropped) }
-Write-Verbose ('[{0,5:N1}s] Art written.' -f $clock.Elapsed.TotalSeconds)
+Write-Verbose ('[{0,5:N1}s] Art written.' -f $stopwatch.Elapsed.TotalSeconds)
 # Screenshots: newest first, scaled to at most 1920x1080.
 $shots = New-Object System.Collections.ArrayList
 $remote = Join-Path $userDir '760\remote'
