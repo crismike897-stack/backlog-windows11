@@ -1,0 +1,39 @@
+﻿<!DOCTYPE html>
+<html lang="es" translate="no">
+<head><meta name="google" content="notranslate">
+  <meta charset="utf-8">
+  <title>Backlog</title>
+  <link rel="icon" href="data:,">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="core.css">
+  <!-- Order matters: settings and data first, then the core, then each scene registers itself. -->
+  <script src="config.js"></script>
+  <script src="library/library.js"></script>
+  <script src="core.js"></script>
+  <script src="scenes/drift.js"></script>
+  <script src="scenes/flip.js"></script>
+  <script src="scenes/mosaic.js"></script>
+  <script src="scenes/ripple.js"></script>
+  <script src="scenes/ripple2.js"></script>
+<style id="smoothFade">body { opacity: 0; animation: scrFadeIn 1.1s cubic-bezier(0.22, 1, 0.36, 1) forwards; background: #000; } @keyframes scrFadeIn { from { opacity: 0; } to { opacity: 1; } }</style>
+</head>
+<body>
+  <div id="shift">
+    <div id="stage"></div>
+    <div id="overlay" aria-hidden="true"></div>
+  </div>
+  <div id="frame" aria-hidden="true"></div>
+  <div id="veil"></div>
+  <script>BACKLOG.start();</script>
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
